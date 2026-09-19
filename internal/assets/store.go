@@ -102,10 +102,14 @@ func normalizeRel(p string) string {
 }
 
 // canonicalPath 返回清单中的规范路径（保留原大小写）；未找到返回空串。
+// 清单项的中文变体（如 keep_hand.cn.png）同样放行，返回变体规范路径。
 func canonicalPath(rel string) string {
 	for _, r := range Required {
 		if strings.EqualFold(r, rel) {
 			return r
+		}
+		if v := LangVariant(r, "cn"); strings.EqualFold(v, rel) {
+			return v
 		}
 	}
 	return ""
