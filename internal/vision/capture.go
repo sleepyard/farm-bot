@@ -3,6 +3,7 @@ package vision
 import (
 	"fmt"
 	"image"
+	"math"
 	"time"
 	"unsafe"
 
@@ -79,13 +80,22 @@ type bitmapInfo struct {
 //  2. 失败则短暂 HWND_TOPMOST 后从桌面 DC BitBlt，再取消置顶。
 //
 // 全程在物理 DPI 上下文中执行，保证与鼠标坐标同一像素空间。
+//
+// 返回前统一归一化到 1280×720 参考空间：ROI、模板与点击坐标全部以此为
+// 唯一坐标空间，实际客户区尺寸只在捕获（此处）与点击（input 包）两个边界换算。
 func CaptureClient(hwnd uintptr) (*image.RGBA, error) {
 	var img *image.RGBA
 	var err error
 	windpi.WithPhysical(func() {
 		img, err = captureClientPhysical(hwnd)
 	})
-	return img, err
+	if err != nil || img == nil {
+		return img, err
+	}
+	if b := img.Bounds(); b.Dx() != LiveWidth || b.Dy() != LiveHeight {
+		img = resizeRGBA(img, LiveWidth, LiveHeight)
+	}
+	return img, nil
 }
 
 func captureClientPhysical(hwnd uintptr) (*image.RGBA, error) {
@@ -241,4 +251,57 @@ func MeanLuma(img *image.RGBA) float64 {
 		return 0
 	}
 	return sum / float64(n)
+}
+
+// resizeRGBA 双线性插值缩放到 w×h。
+// 不用最近邻：文字按钮缩到约 0.8 倍时锯齿会拉低 NCC 匹配分数。
+func resizeRGBA(src *image.RGBA, w, h int) *image.RGBA {
+	sb := src.Bounds()
+	sw, sh := sb.Dx(), sb.Dy()
+	dst := image.NewRGBA(image.Rect(0, 0, w, h))
+	if sw < 1 || sh < 1 || w < 1 || h < 1 {
+		return dst
+	}
+	scaleX := float64(sw) / float64(w)
+	scaleY := float64(sh) / float64(h)
+	for y := 0; y < h; y++ {
+		// 目标像素中心映射回源坐标
+		fy := (float64(y)+0.5)*scaleY - 0.5
+		y0 := int(math.Floor(fy))
+		fy -= float64(y0)
+		if y0 < 0 {
+			y0, fy = 0, 0
+		}
+		y1 := y0 + 1
+		if y1 >= sh {
+			y1 = sh - 1
+		}
+		row0 := src.PixOffset(sb.Min.X, sb.Min.Y+y0)
+		row1 := src.PixOffset(sb.Min.X, sb.Min.Y+y1)
+		for x := 0; x < w; x++ {
+			fx := (float64(x)+0.5)*scaleX - 0.5
+			x0 := int(math.Floor(fx))
+			fx -= float64(x0)
+			if x0 < 0 {
+				x0, fx = 0, 0
+			}
+			x1 := x0 + 1
+			if x1 >= sw {
+				x1 = sw - 1
+			}
+			w00 := (1 - fx) * (1 - fy)
+			w10 := fx * (1 - fy)
+			w01 := (1 - fx) * fy
+			w11 := fx * fy
+			i00, i10 := row0+x0*4, row0+x1*4
+			i01, i11 := row1+x0*4, row1+x1*4
+			di := y*dst.Stride + x*4
+			for c := 0; c < 4; c++ {
+				v := float64(src.Pix[i00+c])*w00 + float64(src.Pix[i10+c])*w10 +
+					float64(src.Pix[i01+c])*w01 + float64(src.Pix[i11+c])*w11
+				dst.Pix[di+c] = uint8(v + 0.5)
+			}
+		}
+	}
+	return dst
 }
