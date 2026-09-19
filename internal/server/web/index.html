@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MTGA Farm Bot</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --text: #e7ecf3;
+      --muted: #8b9bb4;
+      --accent: #3d8bfd;
+      --accent-hover: #5a9dff;
+      --ok: #3dd68c;
+      --err: #ff6b6b;
+      --border: #2a3648;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+      background: radial-gradient(1200px 600px at 10% -10%, #1b2a44 0%, var(--bg) 55%);
+      color: var(--text);
+    }
+    main {
+      max-width: none;
+      margin: 0;
+      padding: 24px 20px 32px;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 20px;
+      align-items: start;
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+    .col-main { min-width: 0; }
+    .col-preview {
+      position: sticky;
+      top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .preview-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .preview-card h3 {
+      margin: 0;
+      padding: 10px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+    }
+    .preview-card .caption {
+      padding: 0 12px 8px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-family: Consolas, "Cascadia Mono", monospace;
+      word-break: break-all;
+    }
+    .preview-frame {
+      aspect-ratio: 16 / 9;
+      background: #0a0e14;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 140px;
+    }
+    .preview-frame.template {
+      aspect-ratio: auto;
+      min-height: 80px;
+      max-height: 160px;
+      padding: 12px;
+    }
+    .preview-frame img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: none;
+    }
+    .preview-frame img.show { display: block; }
+    .preview-frame .placeholder {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    @media (max-width: 960px) {
+      .layout { grid-template-columns: 1fr; }
+      .col-preview { position: static; }
+    }
+    button.danger {
+      background: #c23b3b;
+      border: 0;
+      color: #fff;
+    }
+    button.danger:hover:not(:disabled) {
+      background: #e04a4a;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      flex: 1;
+    }
+    .tutorial-hint {
+      margin: 0;
+      font-size: calc(0.78rem + 4pt);
+      font-weight: 700;
+      color: #ff4d4d;
+      line-height: 1.4;
+      animation: hint-blink 1.2s ease-in-out infinite;
+    }
+    @keyframes hint-blink {
+      0%, 100% { color: #ff4d4d; }
+      50% { color: #ffb3b3; }
+    }
+    .topbar button {
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    #tutorialBtn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 18px;
+      font-size: 1.05rem;
+    }
+    body.ui-locked #tutorialBtn {
+      border-color: #ff4d4d;
+      animation: tutorial-glow 1.2s ease-in-out infinite;
+    }
+    @keyframes tutorial-glow {
+      0%, 100% {
+        border-color: #ff4d4d;
+        box-shadow: 0 0 0 1px rgba(255, 77, 77, 0.85), 0 0 10px rgba(255, 77, 77, 0.55), 0 0 22px rgba(255, 77, 77, 0.35);
+      }
+      50% {
+        border-color: #ffb3b3;
+        box-shadow: 0 0 0 2px rgba(255, 179, 179, 0.95), 0 0 16px rgba(255, 77, 77, 0.85), 0 0 32px rgba(255, 77, 77, 0.5);
+      }
+    }
+    #tutorialAck {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    body.ui-locked main button:not(#tutorialBtn),
+    body.script-running button:not(#scriptBtn) {
+      pointer-events: none;
+      opacity: 0.28;
+      filter: brightness(0.65);
+      cursor: not-allowed;
+    }
+    body.script-running button:not(#scriptBtn) input {
+      pointer-events: none;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.6rem;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+    }
+    .title-row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin: 0 0 8px;
+    }
+    .app-version {
+      color: var(--muted);
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+    .sub {
+      margin: 0 0 28px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 20px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+      background: var(--accent);
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.05s ease;
+    }
+    button:hover:not(:disabled) { background: var(--accent-hover); }
+    button:active:not(:disabled) { transform: translateY(1px); }
+    button:disabled {
+      opacity: 0.28;
+      filter: brightness(0.65);
+      cursor: not-allowed;
+    }
+    button.secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    button.secondary:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: #3a4a63;
+    }
+    .mode-now {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 0 0 12px;
+      font-size: calc(0.9rem + 4pt);
+    }
+    .mode-switch-row {
+      margin-bottom: 8px;
+    }
+    .check-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .check-btn input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .auto-switch-hint {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.45;
+    }
+    .card-dir-hint {
+      margin: -8px 0 16px;
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.45;
+      word-break: break-all;
+      font-family: Consolas, "Cascadia Mono", monospace;
+    }
+    .card-dir-hint.err { color: var(--err); }
+    .mode-pill {
+      color: var(--muted);
+      font-size: inherit;
+    }
+    .mode-pill strong {
+      color: var(--text);
+      font-weight: 650;
+    }
+    .info-panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 14px;
+      font-size: 0.92rem;
+      line-height: 1.55;
+    }
+    .info-panel h2 {
+      margin: 0 0 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .quests {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .quests li {
+      margin: 0 0 6px;
+      font-family: Consolas, "Cascadia Mono", monospace;
+      font-size: 0.9rem;
+    }
+    .quest-progress { color: var(--ok); }
+    .quest-gold { color: #e2b84a; }
+    .info-empty, .info-warn {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .info-warn { margin-top: 10px; }
+    .info-warn.err { color: var(--err); }
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(8, 12, 18, 0.72);
+      backdrop-filter: blur(2px);
+    }
+    .overlay.show { display: flex; }
+    .overlay-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px 36px;
+      min-width: 240px;
+      text-align: center;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    }
+    .overlay-box .spinner {
+      width: 28px;
+      height: 28px;
+      margin: 0 auto 14px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    .overlay-box .msg {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .log {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      height: 220px;
+      overflow: auto;
+      padding: 14px 16px;
+      font-family: Consolas, "Cascadia Mono", monospace;
+      font-size: 0.9rem;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .log .ok { color: var(--ok); }
+    .log .err { color: var(--err); }
+    .log .meta { color: var(--muted); }
+
+    .dev-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(8, 12, 18, 0.78);
+      padding: 20px;
+    }
+    .dev-modal.show { display: flex; }
+    .dev-modal.locked {
+      z-index: 1400;
+      pointer-events: auto;
+    }
+    .dev-sheet {
+      width: min(860px, 100%);
+      max-height: min(88vh, 900px);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .dev-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .dev-head h2 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 650;
+    }
+    .dev-head .stats {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-left: 4px;
+    }
+    .dev-head .spacer { flex: 1; }
+    .dev-list {
+      overflow: auto;
+      padding: 8px 0;
+    }
+    .dev-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 16px;
+      border-bottom: 1px solid rgba(42, 54, 72, 0.55);
+      font-size: 0.86rem;
+    }
+    .dev-row .path {
+      font-family: Consolas, "Cascadia Mono", monospace;
+      word-break: break-all;
+    }
+    .dev-row .badge {
+      font-size: 0.75rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .dev-row .badge.ok { color: var(--ok); }
+    .dev-row .badge.miss { color: var(--err); }
+    .dev-row input[type="file"] { display: none; }
+    .dev-row .upload-btn {
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      border-radius: 8px;
+    }
+    .deck-sheet {
+      width: min(520px, 100%);
+      max-height: min(88vh, 720px);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .deck-body {
+      padding: 16px;
+      overflow: auto;
+    }
+    .deck-body pre {
+      margin: 0;
+      padding: 14px 16px;
+      background: rgba(0, 0, 0, 0.28);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-family: Consolas, "Cascadia Mono", monospace;
+      font-size: 0.92rem;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+      user-select: text;
+    }
+    .deck-body .deck-err {
+      color: var(--err);
+      margin: 0;
+    }
+    .deck-foot {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      padding: 12px 16px 16px;
+      border-top: 1px solid var(--border);
+    }
+    .warn-sheet {
+      width: min(460px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px 26px 20px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    }
+    .warn-sheet h2 {
+      margin: 0 0 12px;
+      font-size: 1.05rem;
+      font-weight: 650;
+      color: var(--err);
+    }
+    .warn-sheet p {
+      margin: 0 0 20px;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: var(--text);
+    }
+    .warn-sheet.no-actions p { margin-bottom: 0; }
+    .warn-sheet .deck-foot {
+      padding: 0;
+      border-top: 0;
+    }
+    .tutorial-sheet {
+      width: min(860px, 100%);
+      max-height: min(90vh, 920px);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .tutorial-body {
+      padding: 16px 18px 20px;
+      overflow: auto;
+    }
+    .tutorial-body pre {
+      margin: 16px 0 0;
+      padding: 14px 16px;
+      background: rgba(0, 0, 0, 0.28);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
+      font-size: 0.95rem;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .tutorial-body .cap {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+    .tutorial-body img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0a0e14;
+      margin-bottom: 4px;
+    }
+    .tutorial-body img.hidden { display: none; }
+  </style>
+</head>
+<body class="ui-locked">
+  <main>
+    <div class="layout">
+      <div class="col-main">
+        <div class="topbar">
+          <div class="topbar-left">
+            <button id="tutorialBtn" type="button" class="secondary">
+              <input id="tutorialAck" type="checkbox" />
+              教程
+            </button>
+            <p class="tutorial-hint">使用前先阅读教程！阅读完以后打勾，才可正常使用。</p>
+          </div>
+          <div class="topbar-right">
+            <button id="shutdownBtn" type="button" class="danger">关闭 BOT</button>
+            <button id="devBtn" type="button" class="secondary">开发者模式</button>
+          </div>
+        </div>
+        <div class="title-row">
+          <h1>MTGA Farm Bot</h1>
+          <span class="app-version">v1.3</span>
+        </div>
+        <p class="sub">本地服务已启动。先打开 MTGA（1280×720 窗口模式），再点击捕获；成功后会同步刷新每日任务。</p>
+        <div class="mode-now">
+          <span class="mode-pill">当前模式：<strong id="modeLabel">史迹（15胜）</strong></span>
+          <span class="mode-pill">脚本已获得胜场：<strong id="winCount">0 / 15</strong></span>
+          <span class="mode-pill">已获得负场：<strong id="lossCount">0</strong></span>
+        </div>
+        <div class="row">
+          <button id="captureBtn" type="button">捕获 MTGA</button>
+          <button id="scriptBtn" type="button" class="secondary" disabled>开始脚本(F9)</button>
+          <button id="deckCodeBtn" type="button" class="secondary">史迹示例套牌代码</button>
+        </div>
+        <div class="row">
+          <button id="cardDirBtn" type="button" class="secondary">选择卡牌数据目录</button>
+        </div>
+        <p class="card-dir-hint" id="cardDirHint">卡牌目录：尚未检测。找不到时请点上面按钮，选到游戏安装目录下的 MTGA_Data\Downloads\Raw。</p>
+        <div class="row mode-switch-row">
+          <button id="modeBtn" type="button" class="secondary">切换模式</button>
+          <button id="autoSwitchBtn" type="button" class="secondary check-btn">
+            <input id="autoSwitch" type="checkbox" />
+            自动切换模式
+          </button>
+          <button id="shutdownAfterWinsBtn" type="button" class="secondary check-btn">
+            <input id="shutdownAfterWins" type="checkbox" />
+            15胜完成后自动关机
+          </button>
+        </div>
+        <p class="auto-switch-hint">勾选自动切换后：新手套牌对决模式下，把每日任务做完后，会自动切换到史迹15胜模式。</p>
+
+        <section class="info-panel" id="infoPanel" aria-live="polite">
+          <h2>每日任务</h2>
+          <div id="infoQuests" class="info-empty">尚未捕获</div>
+          <div class="info-warn" id="infoWarn"></div>
+        </section>
+
+        <div class="log" id="log" aria-live="polite"></div>
+      </div>
+
+      <aside class="col-preview" aria-label="匹配预览">
+        <div class="preview-card">
+          <h3>目标模板</h3>
+          <div class="preview-frame template" id="tplFrame">
+            <span class="placeholder" id="tplPlaceholder">等待脚本匹配…</span>
+            <img id="tplImg" alt="目标模板" />
+          </div>
+          <div class="caption" id="tplCaption">—</div>
+        </div>
+        <div class="preview-card">
+          <h3>游戏截图</h3>
+          <div class="preview-frame" id="gameFrame">
+            <span class="placeholder" id="gamePlaceholder">等待脚本匹配…</span>
+            <img id="gameImg" alt="游戏截图" />
+          </div>
+          <div class="caption" id="gameCaption">用于当前模板匹配的客户区截图</div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <div class="overlay" id="overlay" aria-live="assertive" aria-busy="true">
+    <div class="overlay-box">
+      <div class="spinner" aria-hidden="true"></div>
+      <div class="msg" id="overlayMsg">正在加载卡牌数据</div>
+    </div>
+  </div>
+
+  <div class="dev-modal locked" id="botClosedModal" role="alertdialog" aria-modal="true" aria-labelledby="botClosedTitle">
+    <div class="warn-sheet no-actions">
+      <h2 id="botClosedTitle">BOT 已关闭</h2>
+      <p>请关闭此页面。</p>
+    </div>
+  </div>
+
+  <div class="dev-modal" id="tutorialModal" role="dialog" aria-modal="true" aria-labelledby="tutorialTitle">
+    <div class="tutorial-sheet">
+      <div class="dev-head">
+        <h2 id="tutorialTitle">使用教程</h2>
+        <span class="spacer"></span>
+        <button type="button" class="secondary" id="tutorialCloseBtn">关闭</button>
+      </div>
+      <div class="tutorial-body">
+        <p class="cap" id="tutorialImgCap" hidden>Gameplay 设置参考</p>
+        <img id="tutorialImg" class="hidden" alt="Gameplay 设置" />
+        <pre id="tutorialText">加载中…</pre>
+        <p class="deck-err" id="tutorialErr" hidden></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="dev-modal" id="devWarnModal" role="dialog" aria-modal="true" aria-labelledby="devWarnTitle">
+    <div class="warn-sheet">
+      <h2 id="devWarnTitle">警告</h2>
+      <p>请确认你知道开发者模式窗口的具体作用，否则请不要擅自改动！</p>
+      <div class="deck-foot">
+        <button type="button" class="secondary" id="devWarnCancelBtn">取消</button>
+        <button type="button" class="danger" id="devWarnConfirmBtn">确认进入</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dev-modal" id="devModal" role="dialog" aria-modal="true" aria-labelledby="devTitle">
+    <div class="dev-sheet">
+      <div class="dev-head">
+        <h2 id="devTitle">图片资源</h2>
+        <span class="stats" id="devStats">—</span>
+        <span class="spacer"></span>
+        <button type="button" class="secondary" id="devRefreshBtn">刷新</button>
+        <button type="button" class="secondary" id="devCloseBtn">关闭</button>
+      </div>
+      <div class="dev-list" id="devList"></div>
+    </div>
+  </div>
+
+  <div class="dev-modal" id="deckModal" role="dialog" aria-modal="true" aria-labelledby="deckTitle">
+    <div class="deck-sheet">
+      <div class="dev-head">
+        <h2 id="deckTitle">史迹示例套牌代码</h2>
+        <span class="spacer"></span>
+        <button type="button" class="secondary" id="deckCloseBtn">关闭</button>
+      </div>
+      <div class="deck-body">
+        <pre id="deckText">加载中…</pre>
+        <p class="deck-err" id="deckErr" hidden></p>
+      </div>
+      <div class="deck-foot">
+        <button type="button" id="deckCopyBtn">复制</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const logEl = document.getElementById("log");
+    const btn = document.getElementById("captureBtn");
+    const cardDirBtn = document.getElementById("cardDirBtn");
+    const cardDirHint = document.getElementById("cardDirHint");
+    const modeBtn = document.getElementById("modeBtn");
+    const autoSwitchBtn = document.getElementById("autoSwitchBtn");
+    const autoSwitchEl = document.getElementById("autoSwitch");
+    const shutdownAfterWinsBtn = document.getElementById("shutdownAfterWinsBtn");
+    const shutdownAfterWinsEl = document.getElementById("shutdownAfterWins");
+    const scriptBtn = document.getElementById("scriptBtn");
+    const modeLabelEl = document.getElementById("modeLabel");
+    const winCountEl = document.getElementById("winCount");
+    const lossCountEl = document.getElementById("lossCount");
+    const statusEl = document.getElementById("status");
+    function setStatus(text) {
+      if (statusEl) statusEl.textContent = text;
+    }
+    const tplImg = document.getElementById("tplImg");
+    const gameImg = document.getElementById("gameImg");
+    const tplPlaceholder = document.getElementById("tplPlaceholder");
+    const gamePlaceholder = document.getElementById("gamePlaceholder");
+    const tplCaption = document.getElementById("tplCaption");
+    let gameMode = "historic";
+    let scriptRunning = false;
+    let pollTimer = null;
+    let logSince = 0;
+    let lastPreviewSeq = -1;
+
+    function canStartScript() {
+      return gameMode === "starter" || gameMode === "historic";
+    }
+
+    function setScriptButtonIdle() {
+      scriptRunning = false;
+      scriptBtn.textContent = "开始脚本(F9)";
+      scriptBtn.classList.remove("danger");
+      scriptBtn.classList.add("secondary");
+      scriptBtn.disabled = !canStartScript();
+      applyScriptLock();
+    }
+    function setScriptButtonRunning() {
+      scriptRunning = true;
+      scriptBtn.textContent = "停止脚本(F9)";
+      scriptBtn.classList.remove("secondary");
+      scriptBtn.classList.add("danger");
+      scriptBtn.disabled = false;
+      applyScriptLock();
+    }
+
+    function applyMode(data) {
+      if (!data) return;
+      gameMode = data.game_mode || "historic";
+      modeLabelEl.textContent = data.mode_label || (gameMode === "starter" ? "新手套牌对决（每日任务）" : "史迹（15胜）");
+      if (typeof data.auto_switch === "boolean") {
+        autoSwitchEl.checked = data.auto_switch;
+      }
+      if (typeof data.shutdown_after_wins === "boolean") {
+        shutdownAfterWinsEl.checked = data.shutdown_after_wins;
+      }
+      if (!scriptRunning) {
+        scriptBtn.disabled = !canStartScript();
+      }
+    }
+
+    function refreshPreview(seq, templateRel) {
+      if (seq == null || seq === lastPreviewSeq) return;
+      lastPreviewSeq = seq;
+      const bust = "?t=" + seq;
+      gameImg.onload = () => {
+        gameImg.classList.add("show");
+        gamePlaceholder.style.display = "none";
+      };
+      gameImg.src = "/api/script/preview/frame" + bust;
+      if (!templateRel) return;
+      tplImg.onload = () => {
+        tplImg.classList.add("show");
+        tplPlaceholder.style.display = "none";
+      };
+      tplImg.src = "/api/script/preview/template" + bust;
+      tplCaption.textContent = templateRel;
+    }
+
+    async function pollScriptStatus() {
+      try {
+        const res = await fetch("/api/script/status?since=" + logSince);
+        const data = await res.json();
+        // 脚本重启后 log 被清空，offset 回落，需从头拉日志
+        if (typeof data.log_offset === "number" && data.log_offset < logSince) {
+          logSince = 0;
+        }
+        if (Array.isArray(data.logs)) {
+          for (const line of data.logs) appendLog(line, "meta");
+        }
+        if (typeof data.log_offset === "number") logSince = data.log_offset;
+        if (data.preview_seq != null) refreshPreview(data.preview_seq, data.template_rel);
+        if (data.game_mode) applyMode(data);
+        if (typeof data.session_wins === "number") {
+          const goal = typeof data.win_goal === "number" ? data.win_goal : 15;
+          winCountEl.textContent = data.session_wins + " / " + goal;
+        }
+        if (typeof data.session_losses === "number" && lossCountEl) {
+          lossCountEl.textContent = String(data.session_losses);
+        }
+        if (Array.isArray(data.quests) && (data.running || data.quests.length > 0)) {
+          renderQuests({ ok: true, quests: data.quests });
+        }
+
+        if (data.running) {
+          setStatus("脚本运行中");
+          if (!scriptRunning) {
+            // F9 / 他页启动：同步按钮并重置预览游标
+            lastPreviewSeq = -1;
+            setScriptButtonRunning();
+            appendLog("检测到脚本已运行（可能由热键 F9 启动）", "ok");
+          }
+        } else if (scriptRunning) {
+          setScriptButtonIdle();
+          setStatus(data.last_ok ? "已完成" : (data.message || "已停止"));
+          if (data.message) appendLog(data.message, data.last_ok ? "ok" : "err");
+          if (data.target_colors) {
+            appendLog("目标颜色: " + data.target_colors + (data.target_reason ? " — " + data.target_reason : ""), "meta");
+          }
+        }
+      } catch (_) { /* ignore transient */ }
+    }
+
+    function startPolling() {
+      if (pollTimer) return;
+      pollTimer = setInterval(pollScriptStatus, 500);
+      pollScriptStatus();
+    }
+    function stopPolling() {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    }
+
+    async function refreshMode() {
+      try {
+        const res = await fetch("/api/mode");
+        applyMode(await res.json());
+      } catch (_) { /* ignore */ }
+    }
+    const infoQuests = document.getElementById("infoQuests");
+    const infoWarn = document.getElementById("infoWarn");
+    const overlay = document.getElementById("overlay");
+    const overlayMsg = document.getElementById("overlayMsg");
+
+    function showOverlay(msg) {
+      overlayMsg.textContent = msg || "正在加载卡牌数据";
+      overlay.classList.add("show");
+    }
+    function hideOverlay() {
+      overlay.classList.remove("show");
+    }
+
+    function applyCardDir(data) {
+      if (!cardDirHint || !data) return;
+      const path = data.raw_dir || data.saved || "";
+      if (path) {
+        cardDirHint.textContent = (data.ok ? "卡牌目录：" : "卡牌目录（未加载）：") + path;
+        cardDirHint.classList.toggle("err", !data.ok);
+      } else {
+        cardDirHint.textContent = "卡牌目录：尚未检测。找不到时请点上面按钮，选到游戏安装目录下的 MTGA_Data\\Downloads\\Raw。";
+        cardDirHint.classList.add("err");
+      }
+    }
+
+    async function refreshCardDir() {
+      try {
+        const res = await fetch("/api/cards/status");
+        applyCardDir(await res.json());
+      } catch (_) { /* ignore */ }
+    }
+
+    function stamp() {
+      return new Date().toLocaleTimeString("zh-CN", { hour12: false });
+    }
+
+    function appendLog(text, cls) {
+      const line = document.createElement("div");
+      if (cls) line.className = cls;
+      line.textContent = `[${stamp()}] ${text}`;
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function renderQuests(pl) {
+      if (!pl) {
+        infoWarn.textContent = "";
+        infoWarn.className = "info-warn";
+        return;
+      }
+
+      const quests = Array.isArray(pl.quests) ? pl.quests : [];
+      if (quests.length === 0) {
+        infoQuests.className = "info-empty";
+        infoQuests.textContent = "暂无任务数据（需在 Home 触发 QuestGetQuests）";
+      } else {
+        const ul = document.createElement("ul");
+        ul.className = "quests";
+        for (const q of quests) {
+          const li = document.createElement("li");
+          const colors = q.colors ? `[${q.colors}] ` : "";
+          if (colors) li.appendChild(document.createTextNode(colors));
+          if (q.name) li.appendChild(document.createTextNode(q.name + " "));
+          const progEl = document.createElement("span");
+          progEl.className = "quest-progress";
+          progEl.textContent = `${q.progress ?? 0}/${q.goal ?? 0}`;
+          li.appendChild(progEl);
+          if (q.reward_gold != null) {
+            const goldEl = document.createElement("span");
+            goldEl.className = "quest-gold";
+            goldEl.textContent = ` (+${q.reward_gold})`;
+            li.appendChild(goldEl);
+          }
+          ul.appendChild(li);
+        }
+        infoQuests.className = "";
+        infoQuests.replaceChildren(ul);
+      }
+      const questWarn = quests.length === 0
+        ? (pl.warning && pl.warning.indexOf("任务") >= 0 ? pl.warning : "")
+        : "";
+      infoWarn.textContent = questWarn;
+      infoWarn.className = quests.length === 0 && pl.ok === false ? "info-warn err" : "info-warn";
+    }
+
+    appendLog("页面已连接本地服务。", "meta");
+    refreshMode();
+    refreshCardDir();
+    startPolling(); // 持续同步服务端（含 F9 热键启停）
+
+    const tutorialBtn = document.getElementById("tutorialBtn");
+    const tutorialAck = document.getElementById("tutorialAck");
+    const tutorialModal = document.getElementById("tutorialModal");
+    const tutorialCloseBtn = document.getElementById("tutorialCloseBtn");
+    const tutorialText = document.getElementById("tutorialText");
+    const tutorialImg = document.getElementById("tutorialImg");
+    const tutorialImgCap = document.getElementById("tutorialImgCap");
+    const tutorialErr = document.getElementById("tutorialErr");
+    const shutdownBtn = document.getElementById("shutdownBtn");
+    const devBtn = document.getElementById("devBtn");
+    const devModal = document.getElementById("devModal");
+    const devList = document.getElementById("devList");
+    const devStats = document.getElementById("devStats");
+    const devCloseBtn = document.getElementById("devCloseBtn");
+    const devRefreshBtn = document.getElementById("devRefreshBtn");
+    const deckCodeBtn = document.getElementById("deckCodeBtn");
+    const deckModal = document.getElementById("deckModal");
+    const deckText = document.getElementById("deckText");
+    const deckErr = document.getElementById("deckErr");
+    const deckCopyBtn = document.getElementById("deckCopyBtn");
+    const deckCloseBtn = document.getElementById("deckCloseBtn");
+    let deckCodeCache = "";
+
+    function applyTutorialLock() {
+      const locked = !tutorialAck.checked;
+      document.body.classList.toggle("ui-locked", locked);
+      if (locked) {
+        closeDevWarnModal();
+        closeDevModal();
+        closeDeckModal();
+      }
+    }
+
+    function applyScriptLock() {
+      document.body.classList.toggle("script-running", scriptRunning);
+      if (!scriptRunning) return;
+      closeTutorialModal();
+      closeDevWarnModal();
+      closeDevModal();
+      closeDeckModal();
+    }
+
+    tutorialAck.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+    tutorialAck.addEventListener("change", applyTutorialLock);
+    function openTutorialModal() {
+      tutorialModal.classList.add("show");
+      loadTutorial();
+    }
+    function closeTutorialModal() {
+      tutorialModal.classList.remove("show");
+    }
+    async function loadTutorial() {
+      tutorialErr.hidden = true;
+      tutorialText.textContent = "加载中…";
+      tutorialImg.classList.add("hidden");
+      tutorialImgCap.hidden = true;
+      try {
+        const res = await fetch("/api/tutorial");
+        const data = await res.json();
+        if (!data.ok) {
+          tutorialText.textContent = "";
+          tutorialErr.hidden = false;
+          tutorialErr.textContent = data.message || "加载失败";
+          return;
+        }
+        tutorialText.textContent = data.text || "（空文件）";
+        if (data.has_image) {
+          tutorialImgCap.hidden = false;
+          tutorialImg.classList.remove("hidden");
+          tutorialImg.src = "/api/tutorial/image?t=" + Date.now();
+        }
+      } catch (e) {
+        tutorialText.textContent = "";
+        tutorialErr.hidden = false;
+        tutorialErr.textContent = "请求失败: " + (e && e.message ? e.message : e);
+      }
+    }
+    tutorialBtn.addEventListener("click", openTutorialModal);
+    tutorialCloseBtn.addEventListener("click", closeTutorialModal);
+    tutorialModal.addEventListener("click", (e) => {
+      if (e.target === tutorialModal) closeTutorialModal();
+    });
+
+    shutdownBtn.addEventListener("click", async () => {
+      shutdownBtn.disabled = true;
+      appendLog("正在关闭 BOT…", "meta");
+      setStatus("关闭中…");
+      const closedModal = document.getElementById("botClosedModal");
+      try {
+        await fetch("/api/shutdown", { method: "POST" });
+      } catch (_) { /* 进程已退出时请求会失败 */ }
+      if (closedModal) closedModal.classList.add("show");
+    });
+
+    function openDeckModal() {
+      deckModal.classList.add("show");
+      loadDeckCode();
+    }
+    function closeDeckModal() {
+      deckModal.classList.remove("show");
+    }
+    async function loadDeckCode() {
+      deckCodeCache = "";
+      deckText.hidden = false;
+      deckText.textContent = "加载中…";
+      deckErr.hidden = true;
+      deckCopyBtn.disabled = true;
+      deckCopyBtn.textContent = "复制";
+      try {
+        const res = await fetch("/api/historic/deck-code");
+        const data = await res.json();
+        if (!data.ok) {
+          deckText.hidden = true;
+          deckErr.hidden = false;
+          deckErr.textContent = data.message || "加载失败";
+          return;
+        }
+        deckCodeCache = data.text || "";
+        deckText.textContent = deckCodeCache || "（空文件）";
+        deckCopyBtn.disabled = !deckCodeCache;
+      } catch (e) {
+        deckText.hidden = true;
+        deckErr.hidden = false;
+        deckErr.textContent = "请求失败: " + (e && e.message ? e.message : e);
+      }
+    }
+    deckCodeBtn.addEventListener("click", openDeckModal);
+    deckCloseBtn.addEventListener("click", closeDeckModal);
+    deckModal.addEventListener("click", (e) => {
+      if (e.target === deckModal) closeDeckModal();
+    });
+    deckCopyBtn.addEventListener("click", async () => {
+      if (!deckCodeCache) return;
+      try {
+        await navigator.clipboard.writeText(deckCodeCache);
+        deckCopyBtn.textContent = "已复制";
+        setTimeout(() => { deckCopyBtn.textContent = "复制"; }, 1500);
+      } catch (_) {
+        deckCopyBtn.textContent = "复制失败";
+        setTimeout(() => { deckCopyBtn.textContent = "复制"; }, 1500);
+      }
+    });
+
+    const devWarnModal = document.getElementById("devWarnModal");
+    const devWarnCancelBtn = document.getElementById("devWarnCancelBtn");
+    const devWarnConfirmBtn = document.getElementById("devWarnConfirmBtn");
+
+    function openDevWarnModal() {
+      devWarnModal.classList.add("show");
+    }
+    function closeDevWarnModal() {
+      devWarnModal.classList.remove("show");
+    }
+    function openDevModal() {
+      closeDevWarnModal();
+      devModal.classList.add("show");
+      loadDevAssets();
+    }
+    function closeDevModal() {
+      devModal.classList.remove("show");
+    }
+
+    async function loadDevAssets() {
+      devStats.textContent = "加载中…";
+      try {
+        const res = await fetch("/api/dev/assets");
+        const data = await res.json();
+        if (!data.ok) {
+          devStats.textContent = data.message || "加载失败";
+          return;
+        }
+        devStats.textContent = `已就绪 ${data.ready}/${data.total} · 目录 ${data.root}/`;
+        devList.replaceChildren();
+        for (const it of (data.items || [])) {
+          const row = document.createElement("div");
+          row.className = "dev-row";
+
+          const pathEl = document.createElement("div");
+          pathEl.className = "path";
+          pathEl.textContent = it.path;
+
+          const badge = document.createElement("span");
+          badge.className = "badge " + (it.exists ? "ok" : "miss");
+          badge.textContent = it.exists
+            ? `已有${it.size != null ? " · " + it.size + "B" : ""}`
+            : "缺失";
+
+          const fileInput = document.createElement("input");
+          fileInput.type = "file";
+          fileInput.accept = "image/png,image/jpeg,.png,.PNG,.jpg,.jpeg";
+
+          const uploadBtn = document.createElement("button");
+          uploadBtn.type = "button";
+          uploadBtn.className = "upload-btn secondary";
+          uploadBtn.textContent = "上传";
+          uploadBtn.addEventListener("click", () => fileInput.click());
+          fileInput.addEventListener("change", async () => {
+            if (!fileInput.files || !fileInput.files[0]) return;
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = "上传中…";
+            try {
+              const fd = new FormData();
+              fd.append("path", it.path);
+              fd.append("file", fileInput.files[0]);
+              const up = await fetch("/api/dev/assets/upload", { method: "POST", body: fd });
+              const result = await up.json();
+              if (result.ok) {
+                appendLog("已上传资源: " + it.path, "ok");
+                await loadDevAssets();
+              } else {
+                appendLog("上传失败 (" + it.path + "): " + (result.message || ""), "err");
+                uploadBtn.textContent = "上传";
+                uploadBtn.disabled = false;
+              }
+            } catch (err) {
+              appendLog("上传请求失败: " + err, "err");
+              uploadBtn.textContent = "上传";
+              uploadBtn.disabled = false;
+            } finally {
+              fileInput.value = "";
+            }
+          });
+
+          row.append(pathEl, badge, uploadBtn, fileInput);
+          devList.appendChild(row);
+        }
+      } catch (err) {
+        devStats.textContent = "加载失败";
+        appendLog("资源清单加载失败: " + err, "err");
+      }
+    }
+
+    devBtn.addEventListener("click", openDevWarnModal);
+    devWarnCancelBtn.addEventListener("click", closeDevWarnModal);
+    devWarnConfirmBtn.addEventListener("click", openDevModal);
+    devWarnModal.addEventListener("click", (e) => {
+      if (e.target === devWarnModal) closeDevWarnModal();
+    });
+    devCloseBtn.addEventListener("click", closeDevModal);
+    devRefreshBtn.addEventListener("click", loadDevAssets);
+    devModal.addEventListener("click", (e) => {
+      if (e.target === devModal) closeDevModal();
+    });
+
+    modeBtn.addEventListener("click", async () => {
+      modeBtn.disabled = true;
+      try {
+        const res = await fetch("/api/mode", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ toggle: true }),
+        });
+        const data = await res.json();
+        applyMode(data);
+        appendLog(data.message || ("当前模式：" + modeLabelEl.textContent), "meta");
+      } catch (err) {
+        appendLog("切换模式失败: " + err, "err");
+      } finally {
+        modeBtn.disabled = false;
+      }
+    });
+
+    autoSwitchEl.addEventListener("click", (e) => e.stopPropagation());
+    autoSwitchBtn.addEventListener("click", () => {
+      autoSwitchEl.checked = !autoSwitchEl.checked;
+      autoSwitchEl.dispatchEvent(new Event("change"));
+    });
+    autoSwitchEl.addEventListener("change", async () => {
+      try {
+        const res = await fetch("/api/mode", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ auto_switch: autoSwitchEl.checked }),
+        });
+        const data = await res.json();
+        applyMode(data);
+        appendLog(autoSwitchEl.checked ? "已开启自动切换模式" : "已关闭自动切换模式", "meta");
+      } catch (err) {
+        appendLog("设置自动切换失败: " + err, "err");
+      }
+    });
+
+    shutdownAfterWinsEl.addEventListener("click", (e) => e.stopPropagation());
+    shutdownAfterWinsBtn.addEventListener("click", () => {
+      shutdownAfterWinsEl.checked = !shutdownAfterWinsEl.checked;
+      shutdownAfterWinsEl.dispatchEvent(new Event("change"));
+    });
+    shutdownAfterWinsEl.addEventListener("change", async () => {
+      try {
+        const res = await fetch("/api/mode", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shutdown_after_wins: shutdownAfterWinsEl.checked }),
+        });
+        const data = await res.json();
+        applyMode(data);
+        appendLog(shutdownAfterWinsEl.checked ? "已开启15胜完成后自动关机" : "已关闭15胜完成后自动关机", "meta");
+      } catch (err) {
+        appendLog("设置自动关机失败: " + err, "err");
+      }
+    });
+
+    scriptBtn.addEventListener("click", async () => {
+      if (scriptRunning) {
+        try {
+          await fetch("/api/script/stop", { method: "POST" });
+          appendLog("正在停止脚本…", "meta");
+          setStatus("停止中…");
+        } catch (err) {
+          appendLog("停止请求失败: " + err, "err");
+        }
+        return;
+      }
+      if (!canStartScript()) {
+        appendLog("当前模式无法启动脚本", "err");
+        return;
+      }
+      try {
+        const res = await fetch("/api/script/start", { method: "POST" });
+        const data = await res.json();
+        if (!data.ok) {
+          appendLog(data.message || "无法启动脚本", "err");
+          return;
+        }
+        setScriptButtonRunning();
+        setStatus("脚本运行中");
+        appendLog("脚本已开始", "ok");
+        startPolling();
+      } catch (err) {
+        appendLog("启动脚本失败: " + err, "err");
+      }
+    });
+
+    cardDirBtn.addEventListener("click", async () => {
+      showOverlay("请在弹出的文件夹窗口中选择卡牌数据目录…");
+      setStatus("选择目录…");
+      try {
+        const res = await fetch("/api/cards/pick-dir", { method: "POST" });
+        const data = await res.json();
+        applyCardDir(data);
+        if (data.canceled) {
+          appendLog(data.message || "已取消选择目录", "meta");
+          setStatus("已取消");
+          return;
+        }
+        appendLog(data.message || "卡牌目录处理结束", data.ok ? "ok" : "err");
+        setStatus(data.ok ? "就绪" : "卡牌目录无效");
+      } catch (err) {
+        appendLog("选择目录失败: " + err, "err");
+        setStatus("选择目录失败");
+      } finally {
+        hideOverlay();
+      }
+    });
+
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      setStatus("捕获中…");
+      appendLog("开始捕获 MTGA 窗口…", "meta");
+      try {
+        const res = await fetch("/api/capture", { method: "POST" });
+        const data = await res.json();
+        appendLog(data.message || "无返回信息", data.ok ? "ok" : "err");
+        if (data.ok && data.title) {
+          appendLog("窗口标题: " + data.title, "meta");
+        }
+        if (data.ok) {
+          lastPreviewSeq = -1;
+          pollScriptStatus();
+          renderQuests(data.playerlog);
+          const n = data.playerlog && Array.isArray(data.playerlog.quests)
+            ? data.playerlog.quests.length : 0;
+          appendLog(n > 0 ? `已刷新每日任务（${n} 项）。` : "已捕获窗口，但未读到任务。", "meta");
+
+          // 捕获成功后加载卡牌库；遮罩盖住页面直至完成。
+          showOverlay("正在加载卡牌数据");
+          setStatus("加载卡牌…");
+          try {
+            const cardRes = await fetch("/api/cards/load", { method: "POST" });
+            const cardData = await cardRes.json();
+            applyCardDir(cardData);
+            appendLog(cardData.message || "卡牌加载结束", cardData.ok ? "ok" : "err");
+            setStatus(cardData.ok ? "就绪" : "卡牌加载失败");
+          } catch (cardErr) {
+            appendLog("卡牌加载请求失败: " + cardErr, "err");
+            setStatus("卡牌加载失败");
+          } finally {
+            hideOverlay();
+          }
+        } else {
+          setStatus("捕获失败");
+        }
+      } catch (err) {
+        appendLog("请求失败: " + err, "err");
+        setStatus("请求失败");
+        hideOverlay();
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

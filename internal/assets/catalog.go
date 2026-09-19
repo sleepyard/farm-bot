@@ -1,0 +1,70 @@
+package assets
+
+// Required 是原版工具模板图清单（相对 assets 根目录）。
+// 来源：Python_version/assets/assert/** 与 Python_version/Buttons/**。
+// 不含 Accounts/ 下按账号自定义的套牌截图，也不含 report_player_* / all_label / event_start / choose_your_deck。
+var Required = []string{
+	// --- assert：场景锚点 / 导航 ---
+	"assert/global_anchor.png",
+	"assert/home_anchor.png",
+	"assert/play_menu_anchor.png",
+	"assert/find_match_anchor.png",
+	"assert/historic_anchor.png",
+	"assert/my_decks_anchor.png",
+	"assert/store_anchor.png",
+	"assert/options_anchor.png",
+	"assert/ingame_anchor.png",
+	"assert/concede.png",
+	"assert/Skip.png",
+	"assert/attack_all.png",
+	"assert/events_tab.png",
+	"assert/in_progress_label.png",
+	"assert/in_progress_anchor.PNG",
+	"assert/starter_deck.PNG",
+
+	"assert/nav/nav_historic_play.png",
+	"assert/nav/nav_my_decks.png",
+	"assert/nav/nav_play_subtab.png",
+
+	"assert/quest_reroll/cancel.png",
+	"assert/quest_reroll/confirm.png",
+	"assert/quest_reroll/dialog.png",
+	"assert/quest_reroll/gold_500.png",
+	"assert/quest_reroll/profile.png",
+
+	"assert/starter_decks/BG.PNG",
+	"assert/starter_decks/BR.PNG",
+	"assert/starter_decks/RG.PNG",
+	"assert/starter_decks/UB.PNG",
+	"assert/starter_decks/UG.PNG",
+	"assert/starter_decks/UR.PNG",
+	"assert/starter_decks/WB.PNG",
+	"assert/starter_decks/WG.PNG",
+	"assert/starter_decks/WR.PNG",
+	"assert/starter_decks/WU.PNG",
+
+	// --- Buttons：可点击控件模板 ---
+	"Buttons/are_you_sure.png",
+	"Buttons/assign_damage_done.png",
+	"Buttons/claim.png",
+	"Buttons/concede.png",
+	"Buttons/decks_btn.png",
+	"Buttons/event_play.png",
+	"Buttons/event_title.png",
+	"Buttons/find_match_btn.png",
+	"Buttons/hist_play_btn.png",
+	"Buttons/keep_hand.png",
+	"Buttons/log_out_btn.png",
+	"Buttons/my_decks.png",
+	"Buttons/my_decks_grid_open.png",
+	"Buttons/next.png",
+	"Buttons/no_attacks.png",
+	"Buttons/okay_btn.png",
+	"Buttons/play_btn.png",
+	"Buttons/play_format_tab.png",
+	"Buttons/scry_done.png",
+	"Buttons/submit_btn.png",
+	"Buttons/submit_deck.png",
+	"Buttons/view_deck.png",
+	"Buttons/view_deck_active.png",
+}
