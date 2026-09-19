@@ -10,14 +10,19 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// 直播客户区必须固定为 1280x720（与原版一致）。
-// 模板与点击坐标都按此尺寸换算；其它分辨率一律拒绝，避免错位。
+// 参考空间固定为 1280x720（模板与点击坐标都按此空间表达）；
+// 实际客户区接受任意 ≈16:9 且不小于 1024x576 的尺寸，截图在捕获时归一化、
+// 点击在发送时换算，因此不再强制窗口恰好是 1280x720。
 const RequiredLiveWidth = 1280
 const RequiredLiveHeight = 720
 
-// sizeTolerancePx 允许的客户区宽/高误差（像素）。
-// 用于吸收偶发的 DPI / 取整噪声，但不能放开到任意 16:9。
-const sizeTolerancePx = 2
+const (
+	minLiveWidth  = 1024
+	minLiveHeight = 576
+	// aspectTolerancePct 宽高比容差（%）：|w*9-h*16| ≤ h*16*pct%，
+	// 让 1366x768 这类近似 16:9 通过。
+	aspectTolerancePct = 3
+)
 
 const (
 	processQueryLimitedInformation       = 0x1000
@@ -62,7 +67,7 @@ type CaptureResult struct {
 }
 
 // CaptureMTGA 查找并选中最合适的 MTGA 窗口。
-// 成功条件：找到可见的 mtga.exe 窗口，且客户区尺寸为 1280x720（±2px）。
+// 成功条件：找到可见的 mtga.exe 窗口，且客户区为 ≈16:9 且不小于 1024x576。
 func CaptureMTGA() CaptureResult {
 	candidates, err := listMTGAWindows()
 	if err != nil {
@@ -88,9 +93,11 @@ func CaptureMTGA() CaptureResult {
 			Candidate:  &best,
 			Candidates: candidates,
 			Message: fmt.Sprintf(
-				"已找到 MTGA 窗口，当前分辨率为 %s，坐标为 %s。请在 Options → Video 将分辨率设为 %dx%d（窗口模式）。",
+				"已找到 MTGA 窗口，当前分辨率为 %s，坐标为 %s。请使用 16:9 窗口分辨率（≥%dx%d），推荐 %dx%d。",
 				best.ClientRect.Size(),
 				best.ClientRect.Position(),
+				minLiveWidth,
+				minLiveHeight,
 				RequiredLiveWidth,
 				RequiredLiveHeight,
 			),
@@ -109,10 +116,13 @@ func CaptureMTGA() CaptureResult {
 	}
 }
 
-// isSupportedLiveSize 判断客户区是否为强制的 1280x720（允许 ±sizeTolerancePx）。
+// isSupportedLiveSize 判断客户区是否为受支持的直播尺寸：
+// 宽高比 ≈16:9（容差 aspectTolerancePct%）且不小于 1024x576。
 func isSupportedLiveSize(w, h int) bool {
-	return abs(w-RequiredLiveWidth) <= sizeTolerancePx &&
-		abs(h-RequiredLiveHeight) <= sizeTolerancePx
+	if w < minLiveWidth || h < minLiveHeight {
+		return false
+	}
+	return abs(w*9-h*16)*100 <= h*16*aspectTolerancePct
 }
 
 func listMTGAWindows() ([]Candidate, error) {

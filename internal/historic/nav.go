@@ -64,12 +64,8 @@ func Navigate(sess Session, hooks Hooks) Result {
 	if sess.HWND == 0 {
 		return Result{OK: false, Message: "未捕获 MTGA 窗口", Steps: n.steps}
 	}
-	if abs(sess.Width-vision.LiveWidth) > 2 || abs(sess.Height-vision.LiveHeight) > 2 {
-		return Result{
-			OK:      false,
-			Message: fmt.Sprintf("客户区须为 %dx%d，当前 %dx%d", vision.LiveWidth, vision.LiveHeight, sess.Width, sess.Height),
-			Steps:   n.steps,
-		}
+	if sess.Width != vision.LiveWidth || sess.Height != vision.LiveHeight {
+		n.step(fmt.Sprintf("警告: 非推荐分辨率 %dx%d（推荐 %dx%d），截图将归一化到参考空间", sess.Width, sess.Height, vision.LiveWidth, vision.LiveHeight))
 	}
 
 	input.Focus(sess.HWND)
@@ -174,11 +170,4 @@ func ok(n *navigator, msg string) Result {
 
 func fail(n *navigator, msg string) Result {
 	return Result{OK: false, Message: msg, Steps: n.steps}
-}
-
-func abs(x int) int {
-	if x < 0 {
-		return -x
-	}
-	return x
 }
