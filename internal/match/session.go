@@ -33,18 +33,19 @@ type Session struct {
 	store *gamestate.Store
 	ctx   context.Context
 
-	mu            sync.Mutex
-	hasMulledKeep bool
-	inGame        bool
-	matchDone     bool
-	keepPolling   bool
-	sawMulligan   bool
-	lastSummary   string
-	decideRunning bool
-	matchStart    time.Time
-	concedeOnce   bool
-	won           bool
-	wonKnown      bool
+	mu              sync.Mutex
+	hasMulledKeep   bool
+	inGame          bool
+	matchDone       bool
+	keepPolling     bool
+	sawMulligan     bool
+	lastSummary     string
+	decideRunning   bool
+	matchStart      time.Time
+	lastMatchMinLog int
+	concedeOnce     bool
+	won             bool
+	wonKnown        bool
 }
 
 // Result 对局循环结果。
@@ -487,9 +488,32 @@ func (s *Session) watchConcedeLimits() {
 			if s.stopped() || s.isDone() {
 				return
 			}
+			s.logMatchMinute()
 			s.tryConcedeIfNeeded()
 		}
 	}
+}
+
+func (s *Session) logMatchMinute() {
+	s.mu.Lock()
+	start := s.matchStart
+	prev := s.lastMatchMinLog
+	s.mu.Unlock()
+	if start.IsZero() {
+		return
+	}
+	mins := int(time.Since(start) / time.Minute)
+	if mins < 1 || mins == prev {
+		return
+	}
+	s.mu.Lock()
+	if mins == s.lastMatchMinLog {
+		s.mu.Unlock()
+		return
+	}
+	s.lastMatchMinLog = mins
+	s.mu.Unlock()
+	s.log(fmt.Sprintf("当前对局%d分钟，超过10分钟自动投降。", mins))
 }
 
 // tryConcedeIfNeeded 对局超过 10 分钟则投降。已投降或正在投降时返回 true，决策循环应跳过。

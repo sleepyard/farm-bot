@@ -20,6 +20,9 @@ const (
 // trySelectTarget 选目标：有益→己方生物；伤害/放逐→对方生物；否则可打脸。
 // 史迹模式：战场目标一律点对手头像；墓地/堆叠选牌仍走对应区域（Zombify / 反击）。
 func (e *Engine) trySelectTarget(snap gamestate.Snapshot) *Move {
+	if snap.Turn.Step == gamestate.StepDeclareAttack && snap.AttackTargetRequired && snap.SelectTarget == nil {
+		return nil
+	}
 	if !snap.NeedsSpellTarget() {
 		return nil
 	}

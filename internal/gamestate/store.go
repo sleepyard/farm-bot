@@ -28,6 +28,8 @@ type Store struct {
 	selectTarget    bool // GREMessageType_SelectTargetsReq 待处理
 	selectTargetP   *SelectTargetPrompt
 	selectN         *SelectNPrompt
+	attackPW        bool // 宣告攻击时对方有鹏洛克，需给攻击者指定伤害接受者
+	attackerIDs     []int
 
 	latestGREStateID int
 	payCostsAt       time.Time
@@ -84,6 +86,8 @@ func (s *Store) Reset() {
 	s.selectTarget = false
 	s.selectTargetP = nil
 	s.selectN = nil
+	s.attackPW = false
+	s.attackerIDs = nil
 	s.latestGREStateID = 0
 	s.payCostsAt = time.Time{}
 	s.selectTargetAt = time.Time{}
@@ -148,6 +152,8 @@ func (s *Store) Snapshot(hasMulledKeep bool) Snapshot {
 		NeedsModalChoice:       s.modalArmed(),
 		SelectTarget:           selT,
 		SelectN:                selN,
+		AttackTargetRequired:   s.attackPW || (s.turn.Step == StepDeclareAttack && actionsNeedAttackTarget(acts)),
+		AttackerIDs:            append([]int(nil), s.attackerIDs...),
 	}
 }
 
@@ -214,6 +220,10 @@ func (s *Store) ApplyEnvelope(env *greEnvelope) (changed bool) {
 			if s.applyAssignDamageReq(msg) {
 				changed = true
 			}
+		case "GREMessageType_DeclareAttackersReq":
+			if s.applyDeclareAttackersReq(msg) {
+				changed = true
+			}
 		case "GREMessageType_SelectNReq":
 			if msg.SelectNReq == nil || len(msg.SelectNReq.IDs) == 0 {
 				continue
@@ -275,6 +285,8 @@ func (s *Store) applyGSM(gsm *wireGSM) {
 			s.actions = nil
 			s.suppressed = map[int]struct{}{}
 			s.turn = TurnInfo{}
+			s.attackPW = false
+			s.attackerIDs = nil
 		}
 		s.matchID = gsm.GameInfo.MatchID
 	}
@@ -294,6 +306,7 @@ func (s *Store) applyGSM(gsm *wireGSM) {
 		s.actions = nil
 	}
 	s.maybeClearAssignAfterStep()
+	s.maybeClearAttackTarget()
 	s.noteMatchResultLocked(gsm)
 }
 

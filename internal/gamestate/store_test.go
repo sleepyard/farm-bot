@@ -575,3 +575,39 @@ func TestZombifyChooserFromGraveyard(t *testing.T) {
 		t.Fatalf("gy cards should not be battlefield targets: %#v", p)
 	}
 }
+
+func TestDeclareAttackersReqPlaneswalker(t *testing.T) {
+	st := NewStore()
+	st.systemSeatID = 1
+	st.turn = TurnInfo{TurnNumber: 4, Phase: PhaseCombat, Step: StepDeclareAttack, ActivePlayer: 1, DecisionPlayer: 1}
+	applyLine(t, st, `{"greToClientEvent":{"greToClientMessages":[{
+		"type":"GREMessageType_DeclareAttackersReq","systemSeatIds":[1],
+		"declareAttackersReq":{"canSubmitAttackers":false,"attackers":[
+			{"attackerInstanceId":11,"legalDamageRecipients":[
+				{"type":"DamageRecType_Player"},
+				{"type":"DamageRecType_PlanesWalker"}
+			]},
+			{"attackerInstanceId":12,"legalDamageRecipients":[
+				{"type":"DamageRecType_Player"},
+				{"type":"DamageRecType_PlanesWalker"}
+			]}
+		]}
+	}]}}`)
+	snap := st.Snapshot(true)
+	if !snap.AttackTargetRequired {
+		t.Fatal("expected planeswalker attack-target")
+	}
+	if len(snap.AttackerIDs) != 2 || snap.AttackerIDs[0] != 11 || snap.AttackerIDs[1] != 12 {
+		t.Fatalf("attackers=%v", snap.AttackerIDs)
+	}
+
+	applyLine(t, st, `{"greToClientEvent":{"greToClientMessages":[{
+		"type":"GREMessageType_GameStateMessage","systemSeatIds":[1],
+		"gameStateMessage":{"type":"GameStateType_Diff","turnInfo":{
+			"turnNumber":4,"phase":"Phase_Main2","step":"Step_BeginCombat","activePlayer":1,"decisionPlayer":1
+		}}
+	}]}}`)
+	if st.Snapshot(true).AttackTargetRequired {
+		t.Fatal("should clear after leaving declare attack")
+	}
+}

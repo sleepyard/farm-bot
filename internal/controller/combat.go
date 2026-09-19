@@ -44,3 +44,14 @@ func (c *Controller) NoAttacks() error {
 	}
 	return fmt.Errorf("未找到 no_attacks.png")
 }
+
+// AssignAttackTargets 对方有鹏洛克：点一次全攻，再点对手头像，全部打脸。
+func (c *Controller) AssignAttackTargets() error {
+	c.log("BOT操作: 对方有鹏洛克 — 全攻后再点头像打脸")
+	if err := c.AllAttack(); err != nil {
+		return err
+	}
+	time.Sleep(300 * time.Millisecond)
+	c.log(fmt.Sprintf("BOT操作: 鹏洛克攻击 — 点对手头像 @(%d,%d)", ptOpponentAvatar.X, ptOpponentAvatar.Y))
+	return input.ClickClient(c.HWND, ptOpponentAvatar.X, ptOpponentAvatar.Y)
+}

@@ -26,6 +26,22 @@ type greMessage struct {
 	SelectNReq            *selectNReq            `json:"selectNReq"`
 	CastingTimeOptionsReq *castingTimeOptionsReq `json:"castingTimeOptionsReq"`
 	GroupReq              *groupReq              `json:"groupReq"`
+	DeclareAttackersReq   *declareAttackersReq   `json:"declareAttackersReq"`
+}
+
+type declareAttackersReq struct {
+	Attackers          []declareAttacker `json:"attackers"`
+	QualifiedAttackers []declareAttacker `json:"qualifiedAttackers"`
+	CanSubmitAttackers bool              `json:"canSubmitAttackers"`
+}
+
+type declareAttacker struct {
+	AttackerInstanceID    int               `json:"attackerInstanceId"`
+	LegalDamageRecipients []damageRecipient `json:"legalDamageRecipients"`
+}
+
+type damageRecipient struct {
+	Type string `json:"type"` // DamageRecType_PlanesWalker / DamageRecType_Player
 }
 
 type groupReq struct {

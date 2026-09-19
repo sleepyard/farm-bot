@@ -139,6 +139,8 @@ type Snapshot struct {
 	NeedsModalChoice       bool // 结算异能竖排/横排 Choose One
 	SelectTarget           *SelectTargetPrompt
 	SelectN                *SelectNPrompt
+	AttackTargetRequired   bool // 对方鹏洛克：攻击者需指定打脸/鹏洛克
+	AttackerIDs            []int
 }
 
 // NeedsSelectN 是否有弃牌/选 N 张挂起。

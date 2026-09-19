@@ -18,8 +18,7 @@ type castCand struct {
 // 新手：先花更多法力；同费时结界（含结界生物）> 生物 > 神器 > 瞬间 > 法术。
 // 史迹：结界 > 生物 > 其余（其余里再尽量把法力花完）。
 func (e *Engine) tryCast(snap gamestate.Snapshot) *Move {
-	phase := snap.Turn.Phase
-	if phase != "" && phase != gamestate.PhaseMain1 && phase != gamestate.PhaseMain2 {
+	if !castPhaseOK(snap) {
 		return nil
 	}
 
@@ -29,17 +28,8 @@ func (e *Engine) tryCast(snap gamestate.Snapshot) *Move {
 		if a.ActionType != gamestate.ActionCast || a.InstanceID == 0 {
 			continue
 		}
-		cost := a.ManaCost
-		if len(cost) == 0 {
-			cmc := carddb.CardCMC(a.GrpID)
-			if cmc >= 99 {
-				continue
-			}
-			if cmc > 0 {
-				cost = []gamestate.ManaPip{{Colors: []string{"ManaColor_Generic"}, Count: cmc}}
-			}
-		}
-		if !CanAfford(cost, pool) {
+		cost, ok := actionCastCost(a)
+		if !ok || !CanAfford(cost, pool) {
 			continue
 		}
 		paid := ManaCostTotal(cost)
@@ -74,6 +64,29 @@ func (e *Engine) tryCast(snap gamestate.Snapshot) *Move {
 		CardName:   carddb.NameByGrp(best.a.GrpID),
 		Reason:     fmt.Sprintf("%s%s（费用=%d 法力=%d）", prefix, prioLabel(best.prio), best.paid, pool.Total),
 	}
+}
+
+func castPhaseOK(snap gamestate.Snapshot) bool {
+	p := snap.Turn.Phase
+	if p == "" || p == gamestate.PhaseMain1 || p == gamestate.PhaseMain2 {
+		return true
+	}
+	return p == gamestate.PhaseCombat && snap.Turn.Step == gamestate.StepDeclareAttack
+}
+
+func actionCastCost(a gamestate.Action) ([]gamestate.ManaPip, bool) {
+	cost := a.ManaCost
+	if len(cost) != 0 {
+		return cost, true
+	}
+	cmc := carddb.CardCMC(a.GrpID)
+	if cmc >= 99 {
+		return nil, false
+	}
+	if cmc > 0 {
+		cost = []gamestate.ManaPip{{Colors: []string{"ManaColor_Generic"}, Count: cmc}}
+	}
+	return cost, true
 }
 
 // betterCast 新手：先花更多法力，同费再比牌类。

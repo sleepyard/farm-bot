@@ -25,18 +25,19 @@ import (
 type Kind string
 
 const (
-	KindKeep         Kind = "keep"
-	KindMulligan     Kind = "mulligan"
-	KindCast         Kind = "cast"
-	KindPlayLand     Kind = "play_land"
-	KindActivate     Kind = "activate"
-	KindAllAttack    Kind = "all_attack"
-	KindNoAttacks    Kind = "no_attacks"
-	KindNoBlocks     Kind = "no_blocks"
-	KindSelectTarget Kind = "select_target"
-	KindSelectN      Kind = "select_n" // 弃牌 / 选 N 张手牌
-	KindResolve      Kind = "resolve"  // 过优先权 / 点右下角
-	KindWait         Kind = "wait"     // 暂不行动
+	KindKeep                Kind = "keep"
+	KindMulligan            Kind = "mulligan"
+	KindCast                Kind = "cast"
+	KindPlayLand            Kind = "play_land"
+	KindActivate            Kind = "activate"
+	KindAllAttack           Kind = "all_attack"
+	KindAssignAttackTargets Kind = "assign_attack_targets"
+	KindNoAttacks           Kind = "no_attacks"
+	KindNoBlocks            Kind = "no_blocks"
+	KindSelectTarget        Kind = "select_target"
+	KindSelectN             Kind = "select_n" // 弃牌 / 选 N 张手牌
+	KindResolve             Kind = "resolve"  // 过优先权 / 点右下角
+	KindWait                Kind = "wait"     // 暂不行动
 )
 
 // Move 是决策器输出、控制器执行的指令。
@@ -126,13 +127,13 @@ func (e *Engine) NextMove(snap gamestate.Snapshot) Move {
 	if m := e.trySelectTarget(snap); m != nil {
 		return *m
 	}
-	if m := e.tryCombat(snap); m != nil {
-		return *m
-	}
 	if m := e.tryPlayLand(snap); m != nil {
 		return *m
 	}
 	if m := e.tryCast(snap); m != nil {
+		return *m
+	}
+	if m := e.tryCombat(snap); m != nil {
 		return *m
 	}
 	if m := e.tryActivate(snap); m != nil {

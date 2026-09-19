@@ -788,7 +788,7 @@
           logSince = 0;
         }
         if (Array.isArray(data.logs)) {
-          for (const line of data.logs) appendLog(line, "meta");
+          for (const line of data.logs) appendLog(line, logClassForLine(line));
         }
         if (typeof data.log_offset === "number") logSince = data.log_offset;
         if (data.preview_seq != null) refreshPreview(data.preview_seq, data.template_rel);
@@ -875,6 +875,11 @@
 
     function stamp() {
       return new Date().toLocaleTimeString("zh-CN", { hour12: false });
+    }
+
+    function logClassForLine(text) {
+      if (typeof text === "string" && text.includes("超过10分钟自动投降")) return "ok";
+      return "meta";
     }
 
     function appendLog(text, cls) {

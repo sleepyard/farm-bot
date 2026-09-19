@@ -21,9 +21,5 @@ func (c *Controller) Concede() error {
 		c.log(fmt.Sprintf("BOT操作: 投降 — 点击 assert/concede.png @(%d,%d)", pt.X, pt.Y))
 		return input.ClickClient(c.HWND, pt.X, pt.Y)
 	}
-	if pt, ok := c.findTemplate("Buttons/concede.png", vision.FullROI(), 0.80); ok {
-		c.log(fmt.Sprintf("BOT操作: 投降 — 点击 Buttons/concede.png @(%d,%d)", pt.X, pt.Y))
-		return input.ClickClient(c.HWND, pt.X, pt.Y)
-	}
 	return fmt.Errorf("未找到 concede.png")
 }

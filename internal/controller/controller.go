@@ -38,6 +38,8 @@ func (c *Controller) Execute(m decisioner.Move) error {
 		return c.Resolve()
 	case decisioner.KindAllAttack:
 		return c.AllAttack()
+	case decisioner.KindAssignAttackTargets:
+		return c.AssignAttackTargets()
 	case decisioner.KindNoAttacks:
 		return c.NoAttacks()
 	case decisioner.KindNoBlocks:
