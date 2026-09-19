@@ -8,7 +8,7 @@
 //	→ 搜图点击 nav_historic_play.png
 //	→ My Decks → 第一套卡组 → 右下 Play
 //
-// 坐标与模板均按 1280×720，无运行时缩放。
+// 坐标与模板均按 1280×720 参考空间；截图捕获时归一化，点击发送时换算。
 package historic
 
 import (

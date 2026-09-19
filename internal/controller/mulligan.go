@@ -9,7 +9,7 @@ import (
 	"github.com/flourbrain/mtga-farm-bot/internal/vision"
 )
 
-// 1280×720 客户区固定点（由原版 1920 参考 ×2/3）；仅作无模板时的弱备。
+// 1280×720 参考空间固定点（由原版 1920 参考 ×2/3）；仅作无模板时的弱备。
 var (
 	ptResolve  = vision.Point{X: 1170, Y: 629} // (1755,944) 右下「下一优先权」
 	ptMulligan = vision.Point{X: 546, Y: 580}

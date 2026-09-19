@@ -18,8 +18,8 @@ const (
 	scryDonePoll       = 150 * time.Millisecond
 )
 
-// ClickScryDone 在 1280×720 客户区原尺寸截图上 1:1 匹配 scry_done.png 并点击。
-// 模板本身已按该分辨率截取，不缩放截图、不缩放模板、不用 1920 坐标换算。
+// ClickScryDone 在 1280×720 参考空间截图上 1:1 匹配 scry_done.png 并点击。
+// 截图已在捕获时归一化到参考空间；模板按该空间截取，不缩放模板、不用 1920 坐标换算。
 func (c *Controller) ClickScryDone() error {
 	path := filepath.Join(assets.RootDir(), filepath.FromSlash(scryDoneRel))
 	deadline := time.Now().Add(scryDoneTimeout)
