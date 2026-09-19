@@ -2,7 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/flourbrain/mtga-farm-bot/internal/assets"
 	"github.com/flourbrain/mtga-farm-bot/internal/input"
@@ -27,14 +26,13 @@ func (c *Controller) clickConfirmOrResolve(reason string) error {
 		return input.ClickClient(c.HWND, ptResolve.X, ptResolve.Y)
 	}
 	roi := vision.FullROI()
-	root := assets.RootDir()
+	var paths []string
 	for _, rel := range confirmTemplateRels {
-		path := filepath.Join(root, filepath.FromSlash(rel))
-		m, ferr := vision.FindTemplateBest(img, path, roi, confirmConfidence, nil)
-		if ferr != nil || m == nil {
-			continue
-		}
-		c.log(fmt.Sprintf("BOT操作: %s 命中 %s @(%d,%d) score=%.3f", reason, rel, m.X, m.Y, m.Score))
+		paths = append(paths, assets.ExistingVariants(rel, assets.TemplateLang())...)
+	}
+	m, hitPath, ferr := vision.FindTemplateAnyBest(img, paths, roi, confirmConfidence)
+	if ferr == nil && m != nil {
+		c.log(fmt.Sprintf("BOT操作: %s 命中 %s @(%d,%d) score=%.3f", reason, hitPath, m.X, m.Y, m.Score))
 		return input.ClickClient(c.HWND, m.X, m.Y)
 	}
 	c.log(fmt.Sprintf("BOT操作: %s 未命中 next/scry_done/submit_btn.png，弱备 resolve @(%d,%d)", reason, ptResolve.X, ptResolve.Y))

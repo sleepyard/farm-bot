@@ -92,10 +92,16 @@ func FindTemplateBest(haystack image.Image, templatePath string, roi ROI, thresh
 // Candidates that fail to load or stay below threshold are skipped; it never
 // short-circuits on the first candidate reaching threshold.
 func FindTemplateAnyBest(haystack image.Image, templatePaths []string, roi ROI, threshold float64) (*Match, string, error) {
-	var best *Match
+	return FindTemplateAnyBestOut(haystack, templatePaths, roi, threshold, nil)
+}
+
+// FindTemplateAnyBestOut 同 FindTemplateAnyBest，并可选写出未达阈值时的跨候选最佳命中。
+func FindTemplateAnyBestOut(haystack image.Image, templatePaths []string, roi ROI, threshold float64, bestOut **Match) (*Match, string, error) {
+	var best, bestMiss *Match
 	bestPath := ""
 	for _, path := range templatePaths {
-		m, err := FindTemplateBest(haystack, path, roi, threshold, nil)
+		var candMiss *Match
+		m, err := FindTemplateBest(haystack, path, roi, threshold, &candMiss)
 		if err != nil {
 			continue
 		}
@@ -104,6 +110,12 @@ func FindTemplateAnyBest(haystack image.Image, templatePaths []string, roi ROI, 
 			best = &cp
 			bestPath = path
 		}
+		if candMiss != nil && (bestMiss == nil || candMiss.Score > bestMiss.Score) {
+			bestMiss = candMiss
+		}
+	}
+	if best == nil && bestOut != nil {
+		*bestOut = bestMiss
 	}
 	return best, bestPath, nil
 }

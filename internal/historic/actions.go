@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/flourbrain/mtga-farm-bot/internal/assets"
 	"github.com/flourbrain/mtga-farm-bot/internal/debugdump"
 	"github.com/flourbrain/mtga-farm-bot/internal/input"
 	"github.com/flourbrain/mtga-farm-bot/internal/vision"
@@ -37,6 +38,7 @@ func (n *navigator) locateTemplateOpts(rel string, roi vision.ROI, threshold flo
 		}
 		return vision.Point{}, false
 	}
+	paths := assets.ExistingVariants(rel, assets.TemplateLang())
 	_ = input.ParkCursor(n.sess.HWND)
 	img, err := vision.CaptureClient(n.sess.HWND)
 	if err != nil {
@@ -54,7 +56,7 @@ func (n *navigator) locateTemplateOpts(rel string, roi vision.ROI, threshold flo
 	}
 
 	var best *vision.Match
-	m, err := vision.FindTemplateBest(img, path, roi, threshold, &best)
+	m, _, err := vision.FindTemplateAnyBestOut(img, paths, roi, threshold, &best)
 	if err != nil {
 		if !opt.quiet {
 			n.step("匹配错误 " + rel + ": " + err.Error())
@@ -80,7 +82,7 @@ func (n *navigator) locateTemplateOpts(rel string, roi vision.ROI, threshold flo
 		fallbackThr = 0.70
 	}
 	var bestFull *vision.Match
-	m2, err := vision.FindTemplateBest(img, path, vision.FullROI(), fallbackThr, &bestFull)
+	m2, _, err := vision.FindTemplateAnyBestOut(img, paths, vision.FullROI(), fallbackThr, &bestFull)
 	if err == nil && m2 != nil {
 		n.step(fmt.Sprintf("ROI 未命中，全屏找到 %s @(%d,%d) score=%.3f", rel, m2.X, m2.Y, m2.Score))
 		n.markClickDebug(img, m2.X, m2.Y, rel)

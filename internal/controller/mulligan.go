@@ -2,7 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/flourbrain/mtga-farm-bot/internal/assets"
 	"github.com/flourbrain/mtga-farm-bot/internal/input"
@@ -55,12 +54,11 @@ func (c *Controller) Mulligan() error {
 
 func (c *Controller) findTemplate(rel string, roi vision.ROI, thr float64) (vision.Point, bool) {
 	_ = input.ParkCursor(c.HWND)
-	path := filepath.Join(assets.RootDir(), filepath.FromSlash(rel))
 	img, err := vision.CaptureClient(c.HWND)
 	if err != nil {
 		return vision.Point{}, false
 	}
-	m, err := vision.FindTemplateBest(img, path, roi, thr, nil)
+	m, _, err := vision.FindTemplateAnyBest(img, assets.ExistingVariants(rel, assets.TemplateLang()), roi, thr)
 	if err != nil || m == nil {
 		return vision.Point{}, false
 	}

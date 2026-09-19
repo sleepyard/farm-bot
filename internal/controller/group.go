@@ -2,7 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/flourbrain/mtga-farm-bot/internal/assets"
@@ -21,7 +20,7 @@ const (
 // ClickScryDone 在 1280×720 客户区原尺寸截图上 1:1 匹配 scry_done.png 并点击。
 // 模板本身已按该分辨率截取，不缩放截图、不缩放模板、不用 1920 坐标换算。
 func (c *Controller) ClickScryDone() error {
-	path := filepath.Join(assets.RootDir(), filepath.FromSlash(scryDoneRel))
+	paths := assets.ExistingVariants(scryDoneRel, assets.TemplateLang())
 	deadline := time.Now().Add(scryDoneTimeout)
 	for {
 		_ = input.ParkCursor(c.HWND)
@@ -29,7 +28,7 @@ func (c *Controller) ClickScryDone() error {
 		if err != nil {
 			return err
 		}
-		m, err := vision.FindTemplate(img, path, vision.FullROI(), scryDoneConfidence)
+		m, _, err := vision.FindTemplateAnyBest(img, paths, vision.FullROI(), scryDoneConfidence)
 		if err != nil {
 			return err
 		}

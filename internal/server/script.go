@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -56,8 +55,9 @@ func (s *scriptState) setPreview(rel string, frame *image.RGBA) {
 	if frame != nil {
 		_ = png.Encode(&frameBuf, frame)
 	}
-	abs := filepath.Join(assets.RootDir(), filepath.FromSlash(rel))
-	tplBytes, _ := os.ReadFile(abs)
+	// Read the template that would actually be matched (language variant first).
+	paths := assets.ExistingVariants(rel, assets.TemplateLang())
+	tplBytes, _ := os.ReadFile(paths[0])
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -485,8 +485,8 @@ func tryClickSkip(logFn func(string), preview func(string, *image.RGBA)) {
 	if preview != nil {
 		preview("assert/Skip.png", img)
 	}
-	path := filepath.Join(assets.RootDir(), "assert", "Skip.png")
-	m, err := vision.FindTemplate(img, path, vision.FullROI(), 0.80)
+	paths := assets.ExistingVariants("assert/Skip.png", assets.TemplateLang())
+	m, _, err := vision.FindTemplateAnyBest(img, paths, vision.FullROI(), 0.80)
 	if err != nil || m == nil {
 		logFn("结算界面：未发现 Skip，继续")
 		return
