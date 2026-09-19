@@ -35,11 +35,12 @@ type Store struct {
 	mode              string
 	autoSwitch        bool
 	shutdownAfterWins bool
+	templateLang      string
 }
 
 // NewStore 创建状态，默认史迹（与原版一致）。
 func NewStore() *Store {
-	return &Store{mode: ModeHistoric}
+	return &Store{mode: ModeHistoric, templateLang: "en"}
 }
 
 // Mode 返回当前模式（historic / starter）。
@@ -74,6 +75,23 @@ func (s *Store) ShutdownAfterWins() bool {
 func (s *Store) SetShutdownAfterWins(on bool) {
 	s.mu.Lock()
 	s.shutdownAfterWins = on
+	s.mu.Unlock()
+}
+
+// TemplateLang returns the template language ("en" = original assets).
+func (s *Store) TemplateLang() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.templateLang
+}
+
+// SetTemplateLang sets the template language; an empty value resets to "en".
+func (s *Store) SetTemplateLang(lang string) {
+	if lang == "" {
+		lang = "en"
+	}
+	s.mu.Lock()
+	s.templateLang = lang
 	s.mu.Unlock()
 }
 

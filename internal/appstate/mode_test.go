@@ -70,3 +70,18 @@ func TestShutdownAfterWins(t *testing.T) {
 		t.Fatal("off")
 	}
 }
+
+func TestTemplateLang(t *testing.T) {
+	s := NewStore()
+	if s.TemplateLang() != "en" {
+		t.Fatal("default en")
+	}
+	s.SetTemplateLang("cn")
+	if s.TemplateLang() != "cn" {
+		t.Fatal("cn")
+	}
+	s.SetTemplateLang("")
+	if s.TemplateLang() != "en" {
+		t.Fatal("empty resets to en")
+	}
+}

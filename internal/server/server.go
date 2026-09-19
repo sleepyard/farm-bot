@@ -368,6 +368,7 @@ type modeResponse struct {
 	ModeLabel         string `json:"mode_label"`
 	AutoSwitch        bool   `json:"auto_switch"`
 	ShutdownAfterWins bool   `json:"shutdown_after_wins"`
+	TemplateLang      string `json:"template_lang"`
 	Message           string `json:"message,omitempty"`
 }
 
@@ -379,6 +380,7 @@ func writeModeJSON(w http.ResponseWriter, extra string) {
 		ModeLabel:         appstate.ModeLabel(mode),
 		AutoSwitch:        appStore.AutoSwitch(),
 		ShutdownAfterWins: appStore.ShutdownAfterWins(),
+		TemplateLang:      appStore.TemplateLang(),
 		Message:           extra,
 	})
 }
@@ -389,10 +391,11 @@ func handleMode(w http.ResponseWriter, r *http.Request) {
 		writeModeJSON(w, "")
 	case http.MethodPost:
 		var body struct {
-			Mode              string `json:"mode"`
-			Toggle            bool   `json:"toggle"`
-			AutoSwitch        *bool  `json:"auto_switch"`
-			ShutdownAfterWins *bool  `json:"shutdown_after_wins"`
+			Mode              string  `json:"mode"`
+			Toggle            bool    `json:"toggle"`
+			AutoSwitch        *bool   `json:"auto_switch"`
+			ShutdownAfterWins *bool   `json:"shutdown_after_wins"`
+			TemplateLang      *string `json:"template_lang"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		if body.AutoSwitch != nil {
@@ -400,6 +403,10 @@ func handleMode(w http.ResponseWriter, r *http.Request) {
 		}
 		if body.ShutdownAfterWins != nil {
 			appStore.SetShutdownAfterWins(*body.ShutdownAfterWins)
+		}
+		if body.TemplateLang != nil {
+			appStore.SetTemplateLang(*body.TemplateLang)
+			assets.SetTemplateLang(appStore.TemplateLang())
 		}
 		var mode string
 		if body.Toggle {
@@ -431,6 +438,11 @@ func handleMode(w http.ResponseWriter, r *http.Request) {
 			}
 			log.Printf("15胜完成后自动关机: %s", state)
 			writeModeJSON(w, "15胜完成后自动关机已"+state)
+			return
+		}
+		if body.TemplateLang != nil {
+			log.Printf("模板语言: %s", appStore.TemplateLang())
+			writeModeJSON(w, "模板语言已切换："+appStore.TemplateLang())
 			return
 		}
 		writeModeJSON(w, "")
