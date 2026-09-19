@@ -1,4 +1,6 @@
 // Package input 提供相对 MTGA 客户区的鼠标点击（Win32 SendInput）。
+// 所有公开函数的入参坐标都是 1280×720 参考空间；发送前在函数入口按
+// 客户区实际尺寸换算（参考→实际），与 vision 捕获时的归一化互为边界。
 package input
 
 import (
@@ -69,6 +71,42 @@ type point struct {
 	X, Y int32
 }
 
+type winRect struct {
+	Left, Top, Right, Bottom int32
+}
+
+// 参考空间尺寸：全代码库的 ROI / 模板 / 点击坐标统一在此空间表达。
+const (
+	refWidth  = 1280
+	refHeight = 720
+)
+
+// refToActual 纯换算：参考空间 (1280×720) → 实际客户区像素（四舍五入）。
+func refToActual(x, y, clientW, clientH int) (int, int) {
+	if clientW <= 0 || clientH <= 0 {
+		return x, y
+	}
+	return (x*clientW + refWidth/2) / refWidth,
+		(y*clientH + refHeight/2) / refHeight
+}
+
+// refClientToActual 读 hwnd 客户区实际尺寸并把参考坐标换算成实际坐标。
+// 须在物理 DPI 上下文（windpi.WithPhysical）内调用。
+func refClientToActual(hwnd uintptr, cx, cy int) (int, int, error) {
+	var rc winRect
+	r, _, e := procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rc)))
+	if r == 0 {
+		return 0, 0, fmt.Errorf("GetClientRect: %v", e)
+	}
+	w := int(rc.Right - rc.Left)
+	h := int(rc.Bottom - rc.Top)
+	if w <= 0 || h <= 0 {
+		return 0, 0, fmt.Errorf("客户区尺寸无效: %dx%d", w, h)
+	}
+	ax, ay := refToActual(cx, cy, w, h)
+	return ax, ay, nil
+}
+
 // Focus 将窗口置于前台。
 func Focus(hwnd uintptr) {
 	windpi.WithPhysical(func() {
@@ -117,7 +155,7 @@ type ClickResult struct {
 	VirtW, VirtH     int
 }
 
-// ClickClient 点击客户区坐标（模板匹配中心，物理像素）。
+// ClickClient 点击客户区坐标（模板匹配中心，1280×720 参考空间）。
 func ClickClient(hwnd uintptr, cx, cy int) error {
 	_, err := ClickClientEx(hwnd, cx, cy)
 	return err
@@ -128,7 +166,12 @@ func MoveClient(hwnd uintptr, cx, cy int) error {
 	var err error
 	FocusIfNeeded(hwnd)
 	windpi.WithPhysical(func() {
-		err = moveClientPhysical(hwnd, cx, cy)
+		ax, ay, e := refClientToActual(hwnd, cx, cy)
+		if e != nil {
+			err = e
+			return
+		}
+		err = moveClientPhysical(hwnd, ax, ay)
 	})
 	return err
 }
@@ -147,7 +190,12 @@ func DoubleClickClient(hwnd uintptr, cx, cy int) error {
 	FocusIfNeeded(hwnd)
 	var err error
 	windpi.WithPhysical(func() {
-		if e := moveClientPhysical(hwnd, cx, cy); e != nil {
+		ax, ay, e := refClientToActual(hwnd, cx, cy)
+		if e != nil {
+			err = e
+			return
+		}
+		if e := moveClientPhysical(hwnd, ax, ay); e != nil {
 			err = e
 			return
 		}
@@ -188,7 +236,7 @@ func moveClientPhysical(hwnd uintptr, cx, cy int) error {
 	return nil
 }
 
-// ClickClientEx 同 ClickClient，并返回屏幕坐标。
+// ClickClientEx 同 ClickClient，并返回屏幕坐标。ClientX/Y 记录入参（参考空间）。
 func ClickClientEx(hwnd uintptr, cx, cy int) (ClickResult, error) {
 	var out ClickResult
 	var err error
@@ -200,9 +248,14 @@ func ClickClientEx(hwnd uintptr, cx, cy int) (ClickResult, error) {
 		time.Sleep(50 * time.Millisecond)
 		defer clearTopMost(hwnd)
 
+		ax, ay, e := refClientToActual(hwnd, cx, cy)
+		if e != nil {
+			err = e
+			return
+		}
 		var pt point
-		pt.X = int32(cx)
-		pt.Y = int32(cy)
+		pt.X = int32(ax)
+		pt.Y = int32(ay)
 		r, _, e := procClientToScreen.Call(hwnd, uintptr(unsafe.Pointer(&pt)))
 		if r == 0 {
 			err = fmt.Errorf("ClientToScreen: %v", e)
@@ -310,8 +363,13 @@ func WheelClient(hwnd uintptr, cx, cy int, delta int) error {
 		defer clearTopMost(hwnd)
 
 		var pt point
-		pt.X = int32(cx)
-		pt.Y = int32(cy)
+		ax, ay, ce := refClientToActual(hwnd, cx, cy)
+		if ce != nil {
+			err = ce
+			return
+		}
+		pt.X = int32(ax)
+		pt.Y = int32(ay)
 		r, _, e := procClientToScreen.Call(hwnd, uintptr(unsafe.Pointer(&pt)))
 		if r == 0 {
 			err = fmt.Errorf("ClientToScreen: %v", e)

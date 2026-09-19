@@ -30,6 +30,30 @@ func TestNormaliseMatchesPython(t *testing.T) {
 	}
 }
 
+func TestRefToActual(t *testing.T) {
+	cases := []struct {
+		name             string
+		x, y             int
+		clientW, clientH int
+		wantX, wantY     int
+	}{
+		{"identity center", 640, 360, 1280, 720, 640, 360},
+		{"identity corner", 1279, 719, 1280, 720, 1279, 719},
+		{"origin", 0, 0, 1920, 1080, 0, 0},
+		{"upscale 1.5x", 640, 360, 1920, 1080, 960, 540},
+		{"upscale 1.5x odd", 100, 200, 1920, 1080, 150, 300},
+		{"1366x768 rounding", 639, 719, 1366, 768, 682, 767},
+		{"1366x768 center", 640, 360, 1366, 768, 683, 384},
+	}
+	for _, c := range cases {
+		gotX, gotY := refToActual(c.x, c.y, c.clientW, c.clientH)
+		if gotX != c.wantX || gotY != c.wantY {
+			t.Errorf("%s: refToActual(%d,%d,%d,%d) = (%d,%d), want (%d,%d)",
+				c.name, c.x, c.y, c.clientW, c.clientH, gotX, gotY, c.wantX, c.wantY)
+		}
+	}
+}
+
 func TestKbInputMatchesMouseInputSize(t *testing.T) {
 	if unsafe.Sizeof(kbInput{}) != unsafe.Sizeof(mouseInput{}) {
 		t.Fatalf("kbInput %d != mouseInput %d", unsafe.Sizeof(kbInput{}), unsafe.Sizeof(mouseInput{}))
