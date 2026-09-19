@@ -87,6 +87,27 @@ func FindTemplateBest(haystack image.Image, templatePath string, roi ROI, thresh
 	return matchGray(haystack, tpl, roi, threshold, bestOut)
 }
 
+// FindTemplateAnyBest matches every candidate template path and returns the
+// globally best hit across all of them, plus the path that produced it.
+// Candidates that fail to load or stay below threshold are skipped; it never
+// short-circuits on the first candidate reaching threshold.
+func FindTemplateAnyBest(haystack image.Image, templatePaths []string, roi ROI, threshold float64) (*Match, string, error) {
+	var best *Match
+	bestPath := ""
+	for _, path := range templatePaths {
+		m, err := FindTemplateBest(haystack, path, roi, threshold, nil)
+		if err != nil {
+			continue
+		}
+		if m != nil && (best == nil || m.Score > best.Score) {
+			cp := *m
+			best = &cp
+			bestPath = path
+		}
+	}
+	return best, bestPath, nil
+}
+
 // FindTemplateMultiScale 在若干尺度上匹配（用于套牌缩略图等）；尺度相对模板本身。
 func FindTemplateMultiScale(haystack image.Image, templatePath string, roi ROI, threshold float64, scales []float64) (*Match, error) {
 	if len(scales) == 0 {
